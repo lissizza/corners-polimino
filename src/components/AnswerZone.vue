@@ -269,26 +269,40 @@
         getRotatedBlock(block, angle, shape) {
             angle = (angle % 360 + 360) % 360;
 
-            // Определяем центр фигуры
-            const centerX = (Math.max(...shape.map(b => b.x)) + Math.min(...shape.map(b => b.x))) / 2;
-            const centerY = (Math.max(...shape.map(b => b.y)) + Math.min(...shape.map(b => b.y))) / 2;
+            // Определение границ фигуры (максимальные и минимальные координаты)
+            const maxX = Math.max(...shape.map(b => b.x));
+            const minX = Math.min(...shape.map(b => b.x));
+            const maxY = Math.max(...shape.map(b => b.y));
+            const minY = Math.min(...shape.map(b => b.y));
 
-            // Рассчитываем относительные координаты блока относительно центра фигуры
-            const relativeX = block.x - centerX;
-            const relativeY = block.y - centerY;
+            // Рассчёт относительных координат блока относительно верхнего левого угла
+            const relativeX = block.x - minX;
+            const relativeY = block.y - minY;
 
-            // Вращаем блок вокруг центра фигуры
+            let newX, newY;
+
+            // Вращаем блок вокруг верхнего левого угла
             switch (angle) {
             case 90:
-                return { x: centerY - relativeY, y: relativeX + centerX };
+                newX = maxY - relativeY;
+                newY = relativeX;
+                break;
             case 180:
-                return { x: centerX - relativeX, y: centerY - relativeY };
+                newX = maxX - relativeX;
+                newY = maxY - relativeY;
+                break;
             case 270:
-                return { x: relativeY + centerX, y: centerX - relativeX };
+                newX = relativeY;
+                newY = maxX - relativeX;
+                break;
             default:
-                return { x: block.x, y: block.y };
+                newX = block.x;
+                newY = block.y;
             }
+
+            return { x: newX, y: newY };
         },
+
       getAnswer() {
         const matrix = Array.from({ length: this.rows }, () => Array(this.cols).fill(0));
         this.placedPieces.forEach((piece) => {
