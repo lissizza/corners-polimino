@@ -210,68 +210,85 @@
         window.removeEventListener('keydown', this.onKeyDown);
         window.removeEventListener('mouseleave', this.onMouseLeave);
       },
-      isPositionSuitable(piece) {
-        const occupiedCells = this.getOccupiedCells(piece);
-  
-        for (let block of piece.shape) {
-          // Get the rotated block position
-          const rotatedBlock = this.getRotatedBlock(block, piece.rotation);
-  
-          // Calculate the absolute position of the block center
-          const blockCenterX = piece.position.x + (rotatedBlock.x + 0.5) * this.cellSize;
-          const blockCenterY = piece.position.y + (rotatedBlock.y + 0.5) * this.cellSize;
-  
-          // Determine which cell the block center is over
-          const col = Math.floor(blockCenterX / this.cellSize);
-          const row = Math.floor(blockCenterY / this.cellSize);
-  
-          // Check if the cell is within the grid bounds
-          if (row < 0 || row >= this.rows || col < 0 || col >= this.cols) {
-            return false;
-          }
-  
-          // Check if the cell is already occupied
-          if (occupiedCells[row][col]) {
-            return false;
-          }
-        }
-  
-        return true;
-      },
-      getOccupiedCells(excludePiece) {
-        const occupied = Array.from({ length: this.rows }, () => Array(this.cols).fill(false));
-  
-        this.placedPieces.forEach((piece) => {
-          if (excludePiece && piece.id === excludePiece.id) {
-            return;
-          }
-  
-          piece.shape.forEach((block) => {
-            const rotatedBlock = this.getRotatedBlock(block, piece.rotation);
-  
-            const blockCenterX = piece.position.x + (rotatedBlock.x + 0.5) * this.cellSize;
-            const blockCenterY = piece.position.y + (rotatedBlock.y + 0.5) * this.cellSize;
-  
-            const col = Math.floor(blockCenterX / this.cellSize);
-            const row = Math.floor(blockCenterY / this.cellSize);
-  
-            if (row >= 0 && row < this.rows && col >= 0 && col < this.cols) {
-              occupied[row][col] = true;
+        // Проверка, можно ли поставить фигуру в определенную позицию
+        isPositionSuitable(piece) {
+            const occupiedCells = this.getOccupiedCells(piece);
+
+            for (let block of piece.shape) {
+            // Рассчёт координат блока с учетом поворота
+            const rotatedBlock = this.getRotatedBlock(block, piece.rotation, piece.shape);
+
+            // Рассчёт абсолютной позиции блока
+            const blockX = piece.position.x + rotatedBlock.x * this.cellSize;
+            const blockY = piece.position.y + rotatedBlock.y * this.cellSize;
+
+            // Проверка, находится ли блок внутри поля
+            const col = Math.floor(blockX / this.cellSize);
+            const row = Math.floor(blockY / this.cellSize);
+
+            if (row < 0 || row >= this.rows || col < 0 || col >= this.cols) {
+                return false; // Если хотя бы один блок выходит за границы, возвращаем false
             }
-          });
-        });
-  
-        return occupied;
-      },
-      getRotatedBlock(block, angle) {
-        angle = (angle % 360 + 360) % 360; // Normalize angle
-        const radians = (Math.PI / 180) * angle;
-        const cos = Math.cos(radians);
-        const sin = Math.sin(radians);
-        const x = block.x * cos - block.y * sin;
-        const y = block.x * sin + block.y * cos;
-        return { x: Math.round(x), y: Math.round(y) };
-      },
+
+            if (occupiedCells[row][col]) {
+                return false; // Если блок попадает на занятое место, тоже false
+            }
+            }
+
+            return true;
+        },
+
+        // Получаем массив всех занятых клеток
+        getOccupiedCells(excludePiece) {
+            const occupied = Array.from({ length: this.rows }, () => Array(this.cols).fill(false));
+
+            this.placedPieces.forEach((piece) => {
+            if (excludePiece && piece.id === excludePiece.id) {
+                return;
+            }
+
+            piece.shape.forEach((block) => {
+                const rotatedBlock = this.getRotatedBlock(block, piece.rotation, piece.shape);
+
+                const blockX = piece.position.x + rotatedBlock.x * this.cellSize;
+                const blockY = piece.position.y + rotatedBlock.y * this.cellSize;
+
+                const col = Math.floor(blockX / this.cellSize);
+                const row = Math.floor(blockY / this.cellSize);
+
+                if (row >= 0 && row < this.rows && col >= 0 && col < this.cols) {
+                occupied[row][col] = true;
+                }
+            });
+            });
+
+            return occupied;
+        },
+
+        // Рассчёт координат блока после поворота
+        getRotatedBlock(block, angle, shape) {
+            angle = (angle % 360 + 360) % 360;
+
+            // Определяем центр фигуры
+            const centerX = (Math.max(...shape.map(b => b.x)) + Math.min(...shape.map(b => b.x))) / 2;
+            const centerY = (Math.max(...shape.map(b => b.y)) + Math.min(...shape.map(b => b.y))) / 2;
+
+            // Рассчитываем относительные координаты блока относительно центра фигуры
+            const relativeX = block.x - centerX;
+            const relativeY = block.y - centerY;
+
+            // Вращаем блок вокруг центра фигуры
+            switch (angle) {
+            case 90:
+                return { x: centerY - relativeY, y: relativeX + centerX };
+            case 180:
+                return { x: centerX - relativeX, y: centerY - relativeY };
+            case 270:
+                return { x: relativeY + centerX, y: centerX - relativeX };
+            default:
+                return { x: block.x, y: block.y };
+            }
+        },
       getAnswer() {
         const matrix = Array.from({ length: this.rows }, () => Array(this.cols).fill(0));
         this.placedPieces.forEach((piece) => {
