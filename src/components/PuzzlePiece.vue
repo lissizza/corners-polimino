@@ -1,16 +1,15 @@
-<!-- src/components/PuzzlePiece.vue -->
 <template>
   <svg
     :width="width"
     :height="height"
     :style="{ overflow: 'visible' }"
   >
-    <g :transform="'rotate(' + (piece.rotation || 0) + ' ' + centerX + ' ' + centerY + ')'">
+    <g>
       <rect
-        v-for="(block, index) in piece.shape"
+        v-for="(block, index) in adjustedRotatedShape"
         :key="index"
-        :x="block.x * cellSize"
-        :y="block.y * cellSize"
+        :x="(block.x - minX) * cellSize"
+        :y="(block.y - minY) * cellSize"
         :width="cellSize"
         :height="cellSize"
         :fill="piece.color"
@@ -31,27 +30,54 @@ export default {
   },
   data() {
     return {
-      cellSize: 30, // Размер одного блока в пикселях
+      cellSize: 30,
     };
   },
   computed: {
+    rotation() {
+      return this.piece.rotation || 0;
+    },
+    rotatedShape() {
+      return this.piece.shape.map((block) => this.getRotatedBlock(block, this.rotation));
+    },
+    xs() {
+      return this.rotatedShape.map((block) => block.x);
+    },
+    ys() {
+      return this.rotatedShape.map((block) => block.y);
+    },
+    minX() {
+      return Math.min(...this.xs);
+    },
+    minY() {
+      return Math.min(...this.ys);
+    },
+    maxX() {
+      return Math.max(...this.xs);
+    },
+    maxY() {
+      return Math.max(...this.ys);
+    },
     width() {
-      const xs = this.piece.shape.map((block) => block.x);
-      const minX = Math.min(...xs);
-      const maxX = Math.max(...xs);
-      return (maxX - minX + 1) * this.cellSize;
+      return (this.maxX - this.minX + 1) * this.cellSize;
     },
     height() {
-      const ys = this.piece.shape.map((block) => block.y);
-      const minY = Math.min(...ys);
-      const maxY = Math.max(...ys);
-      return (maxY - minY + 1) * this.cellSize;
+      return (this.maxY - this.minY + 1) * this.cellSize;
     },
-    centerX() {
-      return this.width / 2;
+    adjustedRotatedShape() {
+      // Adjust the rotated shape to start from (minX, minY)
+      return this.rotatedShape;
     },
-    centerY() {
-      return this.height / 2;
+  },
+  methods: {
+    getRotatedBlock(block, angle) {
+      angle = (angle % 360 + 360) % 360; // Normalize angle
+      const radians = (Math.PI / 180) * angle;
+      const cos = Math.cos(radians);
+      const sin = Math.sin(radians);
+      const x = block.x * cos - block.y * sin;
+      const y = block.x * sin + block.y * cos;
+      return { x: Math.round(x), y: Math.round(y) };
     },
   },
 };
