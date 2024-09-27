@@ -153,7 +153,7 @@
       lowerZIndex(event) {
         const element = event.target.closest('.placed-piece');
         if (element) {
-          element.style.zIndex = 0;
+          element.style.zIndex = 1;
         }
       },
       getClickedBlock(piece, event) {
@@ -396,13 +396,11 @@
     position: absolute;
     top: 0;
     left: 0;
-    z-index: -1; /* Place grid under pieces */
   }
   
   .dragging-piece {
     position: fixed;
-    pointer-events: none;
-    z-index: 1000;
+    z-index: 2;
   }
   
   .controls {
