@@ -14,6 +14,7 @@
         :height="cellSize"
         :fill="piece.color"
         stroke="#000"
+        @mousedown="onBlockMouseDown($event, block)"
       />
     </g>
   </svg>
@@ -65,13 +66,12 @@ export default {
       return (this.maxY - this.minY + 1) * this.cellSize;
     },
     adjustedRotatedShape() {
-      // Adjust the rotated shape to start from (minX, minY)
       return this.rotatedShape;
     },
   },
   methods: {
     getRotatedBlock(block, angle) {
-      angle = (angle % 360 + 360) % 360; // Normalize angle
+      angle = (angle % 360 + 360) % 360; // Нормализуем угол
       const radians = (Math.PI / 180) * angle;
       const cos = Math.cos(radians);
       const sin = Math.sin(radians);
@@ -79,6 +79,9 @@ export default {
       const y = block.x * sin + block.y * cos;
       return { x: Math.round(x), y: Math.round(y) };
     },
+    onBlockMouseDown(event, block) {
+      this.$emit('mousedown', event, block);
+    }
   },
 };
 </script>

@@ -39,7 +39,7 @@
     </div>
   </template>
   
-  <script>
+<script>
   import PuzzlePiece from './PuzzlePiece.vue';
   
   export default {
@@ -102,8 +102,30 @@
         event.stopPropagation();
 
         const clickedBlock = this.getClickedBlock(piece, event);
-        if (!clickedBlock) return; // Игнорируем клики на невидимые части
 
+        if (!clickedBlock) {
+          this.lowerZIndex(event); // Уменьшаем z-index для этой фигуры
+          
+          // Задержка для выполнения логики после изменения z-index
+          this.$nextTick(() => {
+            // Получаем элемент под курсором после того, как текущий элемент был перемещён вниз
+            const elementUnderCursor = document.elementFromPoint(event.clientX, event.clientY);
+
+            if (elementUnderCursor) {
+              // Эмулируем новый mousedown для этого элемента
+              const newEvent = new MouseEvent('mousedown', {
+                clientX: event.clientX,
+                clientY: event.clientY,
+                button: 0, // Левый клик
+              });
+
+              // Вызов события mousedown на элементе под курсором
+              elementUnderCursor.dispatchEvent(newEvent);
+            }
+          });
+          return;
+        }
+        // Начинаем перетаскивание
         this.isDragging = true;
         this.draggingPiece = { ...piece };
         this.draggingPiece.offsetX = event.offsetX;
@@ -127,6 +149,12 @@
         window.addEventListener('mouseup', this.onDrop);
         window.addEventListener('keydown', this.onKeyDown);
         window.addEventListener('mouseleave', this.onMouseLeave);
+      },
+      lowerZIndex(event) {
+        const element = event.target.closest('.placed-piece');
+        if (element) {
+          element.style.zIndex = 0;
+        }
       },
       getClickedBlock(piece, event) {
         const { offsetX, offsetY } = event;
@@ -348,9 +376,9 @@
       },
     },
   };
-  </script>
+</script>
   
-  <style scoped>
+<style scoped>
   .answer-zone {
     width: 450px; /* 15 * 30 */
     height: 450px; /* 15 * 30 */
@@ -361,6 +389,7 @@
   
   .placed-piece {
     position: absolute;
+    z-index: 1;
   }
   
   .answer-svg {
@@ -387,5 +416,5 @@
   svg {
     overflow: visible;
   }
-  </style>
+</style>
   
