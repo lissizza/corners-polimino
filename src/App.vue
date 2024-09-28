@@ -1,4 +1,3 @@
-<!-- src/App.vue -->
 <template>
   <div id="app">
     <h1>Геометрическая Головоломка</h1>
@@ -28,6 +27,19 @@
       <!-- Текстовая Метка Зоны Start -->
       <text x="10" y="20" font-size="16" fill="#333">Стартовая Зона</text>
 
+      <!-- Занятые клетки (для отладки) -->
+      <g class="occupied-cells">
+        <rect
+          v-for="(cell, index) in occupiedCells"
+          :key="index"
+          :x="cell.x * gridSize"
+          :y="cell.y * gridSize"
+          :width="gridSize"
+          :height="gridSize"
+          fill="rgba(255, 0, 0, 0.5)"
+        />
+      </g>
+
       <!-- Фигурки -->
       <g>
         <PuzzlePiece
@@ -38,6 +50,12 @@
           @update-piece="handleUpdatePiece"
         />
       </g>
+
+      <!-- Подсказка по клавишам управления в левом нижнем углу -->
+      <g class="controls-hint">
+        <rect x="10" :y="svgHeight - 40" width="200" height="30" fill="#fff" stroke="#000" />
+        <text x="20" :y="svgHeight - 20" font-size="12" fill="#000">A: Влево, D: Вправо</text>
+      </g>
     </svg>
     <button @click="checkVictory">Проверить Победу</button>
     <div v-if="victory" class="victory-message">
@@ -47,7 +65,7 @@
 </template>
 
 <script>
-import { ref } from 'vue';
+import { ref, computed } from 'vue';
 import PuzzlePiece from './components/PuzzlePiece.vue';
 import { pieces as initialPieces } from './data/pieces.js';
 
@@ -57,107 +75,85 @@ export default {
     PuzzlePiece,
   },
   setup() {
-    // Размер сетки
     const gridSize = 30;
-
-    // Размер SVG
     const svgWidth = 800;
     const svgHeight = 600;
-
-    // Количество ячеек по горизонтали и вертикали
     const columns = Math.floor(svgWidth / gridSize);
     const rows = Math.floor(svgHeight / gridSize);
 
-    // Инициализация фигурок с начальной зоной 'start'
     const pieces = ref(
       initialPieces.map(piece => ({
         ...piece,
         zone: 'start',
-        position: { ...piece.initialPosition }, // Используем 'initialPosition'
+        position: { ...piece.initialPosition },
       }))
     );
 
-    // Отладочный вывод начальных фигурок
-    console.log('Initial Pieces:', pieces.value);
-
-    // Функция обновления фигурки
     const handleUpdatePiece = updatedPiece => {
-      console.log('Handling update for piece:', updatedPiece);
+      console.log('Attempting to update piece:', updatedPiece);
       const index = pieces.value.findIndex(p => p.id === updatedPiece.id);
       if (index === -1) return;
-
-      // Сохранение старой позиции для возможного отката
-      const oldPosition = { ...pieces.value[index].position };
-      const oldRotation = pieces.value[index].rotation;
-      const oldReflection = pieces.value[index].isReflected;
 
       // Создание временной фигурки с обновлёнными данными
       const tempPiece = { ...pieces.value[index], ...updatedPiece };
 
-      // Проверка, находится ли фигурка внутри границ SVG
+      // Проверка на выход за границы
       if (!isWithinBounds(tempPiece)) {
-        // Восстановление старой позиции
-        pieces.value[index].position = oldPosition;
-        pieces.value[index].rotation = oldRotation;
-        pieces.value[index].isReflected = oldReflection;
-        console.log('Position out of bounds. Reverting to old position.');
-        return; // Не обновляем позицию
+        console.log('Position out of bounds, reverting to old position.');
+        return; // Не обновляем позицию, если фигура выходит за границы
       }
 
-      // Проверка, перекрывает ли фигурка другие фигурки
+      // Проверка на пересечение с другими фигурами
       if (isOverlapping(tempPiece)) {
-        // Восстановление старой позиции
-        pieces.value[index].position = oldPosition;
-        pieces.value[index].rotation = oldRotation;
-        pieces.value[index].isReflected = oldReflection;
-        console.log('Overlap detected. Reverting to old position.');
-        return; // Не обновляем позицию
+        console.log('Overlap detected, reverting to old position.');
+        return; // Не обновляем позицию, если обнаружено пересечение
       }
 
-      // Если проверки прошли успешно, обновляем фигурку
-      pieces.value[index] = tempPiece;
+      // Если проверки пройдены, обновляем фигурку
+      pieces.value[index] = { ...updatedPiece }; // Обновляем объект полностью, чтобы Vue отследил изменение
 
       // Перемещаем фигурку в конец массива для отображения поверх других
       const [movedPiece] = pieces.value.splice(index, 1);
       pieces.value.push(movedPiece);
 
-      console.log('Piece updated:', tempPiece);
+      console.log('Piece successfully updated:', updatedPiece);
     };
 
-    // Проверка, находится ли фигурка внутри границ SVG
     const isWithinBounds = piece => {
       const transformedShape = getTransformedShape(piece);
       for (const block of transformedShape) {
-        if (
-          block.x < 0 ||
-          block.x >= columns ||
-          block.y < 0 ||
-          block.y >= rows
-        ) {
+        // Приводим координаты в сетку для проверки, находятся ли они в пределах допустимого диапазона
+        const gridX = Math.floor(block.x / gridSize);
+        const gridY = Math.floor(block.y / gridSize);
+
+        if (gridX < 0 || gridX >= columns || gridY < 0 || gridY >= rows) {
+          console.log(`Block out of bounds: (${gridX}, ${gridY})`);
           return false;
         }
       }
       return true;
     };
 
-    // Проверка, перекрывает ли фигурка другие фигурки
     const isOverlapping = piece => {
       const transformedShape = getTransformedShape(piece);
       const occupied = new Set();
 
-      // Собираем все занятые позиции, кроме проверяемой фигурки
       pieces.value.forEach(p => {
         if (p.id !== piece.id) {
           const shape = getTransformedShape(p);
           shape.forEach(block => {
-            occupied.add(`${block.x},${block.y}`);
+            const gridX = Math.floor(block.x / gridSize);
+            const gridY = Math.floor(block.y / gridSize);
+            occupied.add(`${gridX},${gridY}`);
           });
         }
       });
 
-      // Проверяем, пересекается ли текущая фигурка с занятыми позициями
       for (const block of transformedShape) {
-        if (occupied.has(`${block.x},${block.y}`)) {
+        const gridX = Math.floor(block.x / gridSize);
+        const gridY = Math.floor(block.y / gridSize);
+        if (occupied.has(`${gridX},${gridY}`)) {
+          console.log(`Block overlaps at: (${gridX}, ${gridY})`);
           return true;
         }
       }
@@ -165,29 +161,19 @@ export default {
       return false;
     };
 
-    // Проверка победы
     const victory = ref(false);
     const checkVictory = () => {
-      // Желаемый размер 3x11
       const requiredCells = 3 * 11;
       let filledCells = 0;
 
-      // Создаём сетку для проверки заполненности
-      const grid = Array.from({ length: rows }, () =>
-        Array(columns).fill(false)
-      );
+      const grid = Array.from({ length: rows }, () => Array(columns).fill(false));
 
       for (const piece of pieces.value) {
-        if (piece.zone !== 'answer') continue; // Рассматриваем только фигурки в зоне ответа
+        if (piece.zone !== 'answer') continue;
 
         const transformedShape = getTransformedShape(piece);
         for (const block of transformedShape) {
-          if (
-            block.x >= 0 &&
-            block.x < columns &&
-            block.y >= 0 &&
-            block.y < rows
-          ) {
+          if (block.x >= 0 && block.x < columns && block.y >= 0 && block.y < rows) {
             grid[block.y][block.x] = true;
             filledCells++;
           }
@@ -202,36 +188,82 @@ export default {
       }
     };
 
-    // Функция получения трансформированной формы
     const getTransformedShape = piece => {
-      const angle = piece.rotation % 360;
-      const isReflected = piece.isReflected;
+      // Копируем начальную форму блоков
       let transformed = piece.shape.map(block => ({ ...block }));
 
-      // Применение вращения
-      for (let i = 0; i < Math.floor((angle / 90) % 4); i++) {
+      // Применение отражения, если фигура была отражена
+      if (piece.isReflected) {
         transformed = transformed.map(block => ({
-          x: block.y,
-          y: -block.x,
-        }));
-      }
-
-      // Применение отражения
-      if (isReflected) {
-        transformed = transformed.map(block => ({
-          x: -block.x,
+          x: -block.x -1,  // Отражение по оси X
           y: block.y,
         }));
       }
 
-      // Смещение по позиции и округление до ближайшей ячейки
+      // Применение вращения относительно верхнего левого угла
+      const angle = (piece.rotation % 360 + 360) % 360;
+
+      transformed = transformed.map(block => {
+        let newX, newY;
+
+        switch (angle) {
+          case 90:
+            newX = - block.y -1;
+            newY = block.x;
+            break;
+          case 180:
+            newX = -block.x -1;
+            newY = -block.y -1;
+            break;
+          case 270:
+            newX = block.y;
+            newY = -block.x -1;
+            break;
+          default:
+            newX = block.x;
+            newY = block.y;
+        }
+
+        return { x: newX, y: newY };
+      });
+
+      // Смещение всех блоков в зависимости от текущей позиции фигуры (в пикселях)
       transformed = transformed.map(block => ({
-        x: Math.round(block.x + piece.position.x / gridSize),
-        y: Math.round(block.y + piece.position.y / gridSize),
+        x: block.x * gridSize + piece.position.x,
+        y: block.y * gridSize + piece.position.y,
       }));
 
+      console.log(`Transformed shape for piece ${piece.id}:`, transformed);
       return transformed;
     };
+
+    // Предварительное вычисление всех transformedShapes
+    const transformedShapes = computed(() => {
+      const shapes = {};
+      pieces.value.forEach(piece => {
+        shapes[piece.id] = getTransformedShape(piece);
+      });
+      return shapes;
+    });
+
+    const occupiedCells = computed(() => {
+      const occupied = [];
+      pieces.value.forEach(piece => {
+        const transformedShape = getTransformedShape(piece);
+        transformedShape.forEach(block => {
+          // Перевод координат блоков в индексы сетки
+          const gridX = Math.floor(block.x / gridSize);
+          const gridY = Math.floor(block.y / gridSize);
+
+          // Проверяем, что координаты находятся в пределах сетки
+          if (gridX >= 0 && gridX < columns && gridY >= 0 && gridY < rows) {
+            occupied.push({ x: gridX, y: gridY });
+          }
+        });
+      });
+      console.log('Occupied cells:', occupied);
+      return occupied;
+    });
 
     return {
       svgWidth,
@@ -243,6 +275,8 @@ export default {
       handleUpdatePiece,
       checkVictory,
       victory,
+      occupiedCells,
+      transformedShapes,
     };
   },
 };
