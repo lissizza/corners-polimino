@@ -1,198 +1,273 @@
 <!-- src/App.vue -->
 <template>
-  <div class="game-container" ref="gameContainer">
-    <StartZone
-      :pieces="pieces"
-      @start-drag="onStartDrag"
-      ref="startZone"
-    />
-    <AnswerZone
-      :placedPieces="placedPieces"
-      :startZoneRect="startZoneRect"
-      ref="answerZone"
-      @add-piece="onAddPiece"
-      @remove-piece="onRemovePiece"
-      @return-piece-to-start="onReturnPieceToStart"
-    />
-    <!-- Display dragging piece -->
-    <div v-if="isDragging" class="dragging-piece" :style="draggingPieceStyle">
-      <PuzzlePiece :piece="draggingPiece" />
-    </div>
-    <!-- Controls hint -->
-    <div v-if="isDragging" class="controls">
-      <p>Нажмите "A" или "D" для поворота</p>
+  <div id="app">
+    <h1>Геометрическая Головоломка</h1>
+    <svg :width="svgWidth" :height="svgHeight" class="game-svg">
+      <!-- Сетка -->
+      <g class="grid">
+        <line
+          v-for="i in columns + 1"
+          :key="'v' + i"
+          :x1="i * gridSize"
+          y1="0"
+          :x2="i * gridSize"
+          :y2="rows * gridSize"
+          stroke="#ccc"
+        />
+        <line
+          v-for="i in rows + 1"
+          :key="'h' + i"
+          x1="0"
+          :y1="i * gridSize"
+          :x2="columns * gridSize"
+          :y2="i * gridSize"
+          stroke="#ccc"
+        />
+      </g>
+
+      <!-- Текстовая Метка Зоны Start -->
+      <text x="10" y="20" font-size="16" fill="#333">Стартовая Зона</text>
+
+      <!-- Фигурки -->
+      <g>
+        <PuzzlePiece
+          v-for="piece in pieces"
+          :key="piece.id"
+          :piece="piece"
+          :gridSize="gridSize"
+          @update-piece="handleUpdatePiece"
+        />
+      </g>
+    </svg>
+    <button @click="checkVictory">Проверить Победу</button>
+    <div v-if="victory" class="victory-message">
+      Поздравляем! Вы победили!
     </div>
   </div>
 </template>
 
 <script>
-import StartZone from './components/StartZone.vue';
-import AnswerZone from './components/AnswerZone.vue';
+import { ref } from 'vue'; // Удален импорт 'computed'
 import PuzzlePiece from './components/PuzzlePiece.vue';
 import { pieces as initialPieces } from './data/pieces.js';
 
 export default {
   name: 'App',
   components: {
-    StartZone,
-    AnswerZone,
     PuzzlePiece,
   },
-  data() {
-    return {
-      pieces: initialPieces.map((piece) => ({
+  setup() {
+    // Размер сетки
+    const gridSize = 30;
+
+    // Размер SVG
+    const svgWidth = 800;
+    const svgHeight = 600;
+
+    // Количество ячеек по горизонтали и вертикали
+    const columns = Math.floor(svgWidth / gridSize);
+    const rows = Math.floor(svgHeight / gridSize);
+
+    // Инициализация фигурок с начальной зоной 'start'
+    const pieces = ref(
+      initialPieces.map(piece => ({
         ...piece,
-        rotation: piece.rotation || 0,
-      })),
-      placedPieces: [],
-      isDragging: false,
-      draggingPiece: null,
-      cursorPosition: { x: 0, y: 0 },
-      startZoneRect: null,
+        zone: 'start',
+        position: { ...piece.initialPosition }, // Используем 'initialPosition'
+      }))
+    );
+
+    // Отладочный вывод начальных фигурок
+    console.log('Initial Pieces:', pieces.value);
+
+    // Функция обновления фигурки
+    const handleUpdatePiece = updatedPiece => {
+      console.log('Handling update for piece:', updatedPiece);
+      const index = pieces.value.findIndex(p => p.id === updatedPiece.id);
+      if (index === -1) return;
+
+      // Сохранение старой позиции для возможного отката
+      const oldPosition = { ...pieces.value[index].position };
+      const oldRotation = pieces.value[index].rotation;
+      const oldReflection = pieces.value[index].isReflected;
+
+      // Создание временной фигурки с обновлёнными данными
+      const tempPiece = { ...pieces.value[index], ...updatedPiece };
+
+      // Проверка, находится ли фигурка внутри границ SVG
+      if (!isWithinBounds(tempPiece)) {
+        // Восстановление старой позиции
+        pieces.value[index].position = oldPosition;
+        pieces.value[index].rotation = oldRotation;
+        pieces.value[index].isReflected = oldReflection;
+        console.log('Position out of bounds. Reverting to old position.');
+        return; // Не обновляем позицию
+      }
+
+      // Проверка, перекрывает ли фигурка другие фигурки
+      if (isOverlapping(tempPiece)) {
+        // Восстановление старой позиции
+        pieces.value[index].position = oldPosition;
+        pieces.value[index].rotation = oldRotation;
+        pieces.value[index].isReflected = oldReflection;
+        console.log('Overlap detected. Reverting to old position.');
+        return; // Не обновляем позицию
+      }
+
+      // Если проверки прошли успешно, обновляем фигурку
+      pieces.value[index] = tempPiece;
+
+      // Перемещаем фигурку в конец массива для отображения поверх других
+      const [movedPiece] = pieces.value.splice(index, 1);
+      pieces.value.push(movedPiece);
+
+      console.log('Piece updated:', tempPiece);
     };
-  },
-  computed: {
-    draggingPieceStyle() {
-      return {
-        position: 'fixed',
-        top: `${this.cursorPosition.y - this.draggingPiece.offsetY}px`,
-        left: `${this.cursorPosition.x - this.draggingPiece.offsetX}px`,
-        transform: `rotate(${this.draggingPiece.rotation || 0}deg)`,
-        pointerEvents: 'none',
-        zIndex: 1000,
-      };
-    },
-  },
-  mounted() {
-    // Get the bounding rectangle of the start zone
-    this.$nextTick(() => {
-      const startZoneElement = this.$refs.startZone.$el;
-      this.startZoneRect = startZoneElement.getBoundingClientRect();
-    });
-  },
-  methods: {
-    onStartDrag(piece, event) {
-      this.isDragging = true;
-      this.draggingPiece = JSON.parse(JSON.stringify(piece)); // Deep copy
-      this.draggingPiece.offsetX = event.offsetX;
-      this.draggingPiece.offsetY = event.offsetY;
 
-      // Remove piece from pieces array
-      this.pieces = this.pieces.filter((p) => p.id !== piece.id);
-
-      // Set initial cursor position
-      this.cursorPosition = { x: event.clientX, y: event.clientY };
-
-      // Add event listeners
-      window.addEventListener('mousemove', this.onDrag);
-      window.addEventListener('mouseup', this.onDrop);
-      window.addEventListener('keydown', this.onKeyDown);
-      window.addEventListener('mouseleave', this.onMouseLeave);
-    },
-    onDrag(event) {
-      this.cursorPosition = { x: event.clientX, y: event.clientY };
-    },
-    onDrop(event) {
-      // Remove event listeners
-      window.removeEventListener('mousemove', this.onDrag);
-      window.removeEventListener('mouseup', this.onDrop);
-      window.removeEventListener('keydown', this.onKeyDown);
-      window.removeEventListener('mouseleave', this.onMouseLeave);
-
-      // Calculate drop position relative to answer zone
-      const answerZoneRect = this.$refs.answerZone.$el.getBoundingClientRect();
-      const x = event.clientX - answerZoneRect.left - this.draggingPiece.offsetX;
-      const y = event.clientY - answerZoneRect.top - this.draggingPiece.offsetY;
-
-      // Set the position of the piece
-      this.draggingPiece.position = { x, y };
-
-      // Snap position to grid
-      const cellSize = this.$refs.answerZone.cellSize;
-      this.draggingPiece.position.x = Math.round(this.draggingPiece.position.x / cellSize) * cellSize;
-      this.draggingPiece.position.y = Math.round(this.draggingPiece.position.y / cellSize) * cellSize;
-
-      // Check if drop is inside the answer zone
-      if (
-        event.clientX >= answerZoneRect.left &&
-        event.clientX <= answerZoneRect.right &&
-        event.clientY >= answerZoneRect.top &&
-        event.clientY <= answerZoneRect.bottom
-      ) {
-        // Check if position is suitable
-        if (this.$refs.answerZone.isPositionSuitable(this.draggingPiece)) {
-          // Add piece to placedPieces
-          this.placedPieces.push(this.draggingPiece);
-        } else {
-          // Return piece to start zone
-          this.pieces.push({ ...this.draggingPiece, position: null });
+    // Проверка, находится ли фигурка внутри границ SVG
+    const isWithinBounds = piece => {
+      const transformedShape = getTransformedShape(piece);
+      for (const block of transformedShape) {
+        if (
+          block.x < 0 ||
+          block.x >= columns ||
+          block.y < 0 ||
+          block.y >= rows
+        ) {
+          return false;
         }
+      }
+      return true;
+    };
+
+    // Проверка, перекрывает ли фигурка другие фигурки
+    const isOverlapping = piece => {
+      const transformedShape = getTransformedShape(piece);
+      const occupied = new Set();
+
+      // Собираем все занятые позиции, кроме проверяемой фигурки
+      pieces.value.forEach(p => {
+        if (p.id !== piece.id) {
+          const shape = getTransformedShape(p);
+          shape.forEach(block => {
+            occupied.add(`${block.x},${block.y}`);
+          });
+        }
+      });
+
+      // Проверяем, пересекается ли текущая фигурка с занятыми позициями
+      for (const block of transformedShape) {
+        if (occupied.has(`${block.x},${block.y}`)) {
+          return true;
+        }
+      }
+
+      return false;
+    };
+
+    // Проверка победы
+    const victory = ref(false);
+    const checkVictory = () => {
+      // Желаемый размер 3x11
+      const requiredCells = 3 * 11;
+      let filledCells = 0;
+
+      // Создаём сетку для проверки заполненности
+      const grid = Array.from({ length: rows }, () =>
+        Array(columns).fill(false)
+      );
+
+      for (const piece of pieces.value) {
+        if (piece.zone !== 'answer') continue; // Рассматриваем только фигурки в зоне ответа
+
+        const transformedShape = getTransformedShape(piece);
+        for (const block of transformedShape) {
+          if (
+            block.x >= 0 &&
+            block.x < columns &&
+            block.y >= 0 &&
+            block.y < rows
+          ) {
+            grid[block.y][block.x] = true;
+            filledCells++;
+          }
+        }
+      }
+
+      if (filledCells === requiredCells) {
+        victory.value = true;
       } else {
-        // Return piece to start zone
-        this.pieces.push({ ...this.draggingPiece, position: null });
+        victory.value = false;
+        alert('Не все клетки заполнены!');
+      }
+    };
+
+    // Функция получения трансформированной формы
+    const getTransformedShape = piece => {
+      const angle = piece.rotation % 360;
+      const isReflected = piece.isReflected;
+      let transformed = piece.shape.map(block => ({ ...block }));
+
+      // Применение вращения
+      for (let i = 0; i < Math.floor((angle / 90) % 4); i++) {
+        transformed = transformed.map(block => ({
+          x: block.y,
+          y: -block.x,
+        }));
       }
 
-      // Reset dragging state
-      this.isDragging = false;
-      this.draggingPiece = null;
-    },
-    onKeyDown(event) {
-      if (this.isDragging && this.draggingPiece) {
-        if (event.key === 'a' || event.key === 'A') {
-          this.draggingPiece.rotation = (this.draggingPiece.rotation - 90 + 360) % 360;
-        } else if (event.key === 'd' || event.key === 'D') {
-          this.draggingPiece.rotation = (this.draggingPiece.rotation + 90) % 360;
-        }
+      // Применение отражения
+      if (isReflected) {
+        transformed = transformed.map(block => ({
+          x: -block.x,
+          y: block.y,
+        }));
       }
-    },
-    onMouseLeave() {
-      // Return piece to start zone
-      this.pieces.push({ ...this.draggingPiece, position: null });
-      this.isDragging = false;
-      this.draggingPiece = null;
 
-      // Remove event listeners
-      window.removeEventListener('mousemove', this.onDrag);
-      window.removeEventListener('mouseup', this.onDrop);
-      window.removeEventListener('keydown', this.onKeyDown);
-      window.removeEventListener('mouseleave', this.onMouseLeave);
-    },
-    onAddPiece(piece) {
-      this.placedPieces.push(piece);
-    },
-    onRemovePiece(index) {
-      this.placedPieces.splice(index, 1);
-    },
-    onReturnPieceToStart(piece) {
-      // Return piece to start zone
-      this.pieces.push({ ...piece, position: null });
-    },
+      // Смещение по позиции и округление до ближайшей ячейки
+      transformed = transformed.map(block => ({
+        x: Math.round(block.x + piece.position.x / gridSize),
+        y: Math.round(block.y + piece.position.y / gridSize),
+      }));
+
+      return transformed;
+    };
+
+    return {
+      svgWidth,
+      svgHeight,
+      gridSize,
+      columns,
+      rows,
+      pieces,
+      handleUpdatePiece,
+      checkVictory,
+      victory,
+    };
   },
 };
 </script>
 
 <style>
-.game-container {
-  display: flex;
-  gap: 20px;
-  position: relative;
+#app {
+  font-family: Avenir, Helvetica, Arial, sans-serif;
+  text-align: center;
+  margin: 20px;
 }
 
-.controls {
-  position: fixed;
-  bottom: 10px;
-  left: 10px;
-  background: rgba(255, 255, 255, 0.8);
-  padding: 10px;
+.game-svg {
+  border: 2px solid #333;
+  background-color: #fafafa;
+  margin: 20px auto;
 }
 
-.dragging-piece {
-  position: fixed;
-  pointer-events: none;
-  z-index: 1000;
+.grid line {
+  stroke: #ccc;
 }
 
-body {
-  user-select: none;
+.victory-message {
+  color: green;
+  font-size: 1.5em;
+  margin-top: 20px;
 }
 </style>

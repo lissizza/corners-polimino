@@ -1,76 +1,49 @@
 <!-- src/components/StartZone.vue -->
 <template>
-    <div class="start-zone">
-      <div class="pieces-container">
-        <div
-          v-for="piece in availablePieces"
-          :key="piece.id"
-          class="available-piece"
-          @mousedown.left="onDragStart(piece, $event)"
-          :style="getPieceStyle(piece)"
-        >
-          <PuzzlePiece :piece="piece" />
-        </div>
-      </div>
-    </div>
-  </template>
-  
-  <script>
-  import PuzzlePiece from './PuzzlePiece.vue';
-  
-  export default {
-    name: 'StartZone',
-    components: {
-      PuzzlePiece,
+  <g>
+    <text x="0" y="-10" font-size="16" fill="#333">Стартовая Зона</text>
+    <PuzzlePiece
+      v-for="piece in pieces"
+      :key="piece.id"
+      :piece="piece"
+      :gridSize="gridSize"
+      @update-piece="handleUpdatePiece($event)"
+    />
+  </g>
+</template>
+
+<script>
+import PuzzlePiece from './PuzzlePiece.vue';
+
+export default {
+  name: 'StartZone',
+  components: {
+    PuzzlePiece,
+  },
+  props: {
+    pieces: {
+      type: Array,
+      required: true,
     },
-    props: {
-      pieces: {
-        type: Array,
-        required: true,
-      },
-    },
-    data() {
-      return {
-        availablePieces: this.pieces,
-      };
-    },
-    watch: {
-      pieces(newPieces) {
-        this.availablePieces = newPieces;
-      },
-    },
-    methods: {
-      onDragStart(piece, event) {
-        this.$emit('start-drag', piece, event);
-      },
-      getPieceStyle(piece) {
-        return {
-          cursor: 'grab',
-          transform: `rotate(${piece.rotation || 0}deg)`,
-        };
-      },
-    },
-  };
-  </script>
-  
-  <style scoped>
-  .start-zone {
-    width: 300px;
-    height: 400px;
-    border: 2px solid #ccc;
-    background-color: #f9f9f9;
-    overflow: auto;
-  }
-  
-  .pieces-container {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 10px;
-    padding: 10px;
-  }
-  
-  .available-piece {
-    cursor: grab;
-  }
-  </style>
-  
+  },
+  emits: ['update-piece'],
+  setup(props, { emit }) {
+    const gridSize = 30; // Размер ячейки
+
+    // Функция обработки события обновления фигурки
+    const handleUpdatePiece = (updatedPiece) => {
+      // Устанавливаем зону как 'start'
+      emit('update-piece', { ...updatedPiece, zone: 'start' });
+    };
+
+    return {
+      gridSize,
+      handleUpdatePiece,
+    };
+  },
+};
+</script>
+
+<style scoped>
+/* Добавьте необходимые стили, если нужно */
+</style>
