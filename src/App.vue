@@ -1,6 +1,7 @@
 <template>
   <div id="app">
-    <h1>Соберите из блоков правильный прямоугольник без пустых ячеек и выступов.</h1>
+    <h1>Полимино</h1>
+    <p>Соберите из блоков правильный прямоугольник без пустых ячеек и выступов.</p>
     <svg :width="svgWidth" :height="svgHeight" class="game-svg">
       <!-- Сетка -->
       <g class="grid">
@@ -50,8 +51,9 @@
 
       <!-- Подсказка по клавишам управления в левом нижнем углу -->
       <g class="controls-hint">
-        <rect x="10" :y="svgHeight - 40" width="200" height="30" fill="#fff" stroke="#000" />
-        <text x="20" :y="svgHeight - 20" font-size="12" fill="#000">A: Влево, D: Вправо</text>
+        <rect x="10" :y="svgHeight - 60" width="240" height="50" fill="#fff" stroke="#000" />
+        <text x="20" :y="svgHeight - 40" font-size="12" fill="#000">A: Влево, D: Вправо</text>
+        <text x="20" :y="svgHeight - 20" font-size="12" fill="#000">Двойной щелчок: Отражение</text>
       </g>
     </svg>
     <div v-if="victory" class="victory-message">
@@ -71,9 +73,8 @@ export default {
     PuzzlePiece,
   },
   setup() {
-    // остальная логика остается неизменной
     const gridSize = 30;
-    const svgWidth = 800;
+    const svgWidth = 600;
     const svgHeight = 600;
     const columns = Math.floor(svgWidth / gridSize);
     const rows = Math.floor(svgHeight / gridSize);
@@ -87,7 +88,6 @@ export default {
     );
 
     const handleUpdatePiece = updatedPiece => {
-      console.log('Attempting to update piece:', updatedPiece);
       const index = pieces.value.findIndex(p => p.id === updatedPiece.id);
       if (index === -1) return;
 
@@ -96,13 +96,11 @@ export default {
 
       // Проверка на выход за границы
       if (!isWithinBounds(tempPiece)) {
-        console.log('Position out of bounds, reverting to old position.');
         return; // Не обновляем позицию, если фигура выходит за границы
       }
 
       // Проверка на пересечение с другими фигурами
       if (isOverlapping(tempPiece)) {
-        console.log('Overlap detected, reverting to old position.');
         return; // Не обновляем позицию, если обнаружено пересечение
       }
 
@@ -112,8 +110,6 @@ export default {
       // Перемещаем фигурку в конец массива для отображения поверх других
       const [movedPiece] = pieces.value.splice(index, 1);
       pieces.value.push(movedPiece);
-
-      console.log('Piece successfully updated:', updatedPiece);
 
       // Проверка на победу после обновления позиции
       checkVictory();
@@ -126,7 +122,6 @@ export default {
         const gridY = Math.floor(block.y / gridSize);
 
         if (gridX < 0 || gridX >= columns || gridY < 0 || gridY >= rows) {
-          console.log(`Block out of bounds: (${gridX}, ${gridY})`);
           return false;
         }
       }
@@ -152,7 +147,6 @@ export default {
         const gridX = Math.floor(block.x / gridSize);
         const gridY = Math.floor(block.y / gridSize);
         if (occupied.has(`${gridX},${gridY}`)) {
-          console.log(`Block overlaps at: (${gridX}, ${gridY})`);
           return true;
         }
       }
@@ -196,7 +190,6 @@ export default {
 
           if (filled) {
             victory.value = true;
-            console.log('Victory achieved!');
             return;
           }
         }
@@ -246,7 +239,6 @@ export default {
         y: block.y * gridSize + piece.position.y,
       }));
 
-      console.log(`Transformed shape for piece ${piece.id}:`, transformed);
       return transformed;
     };
 
@@ -271,7 +263,6 @@ export default {
           }
         });
       });
-      console.log('Occupied cells:', occupied);
       return occupied;
     });
 
