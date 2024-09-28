@@ -1,9 +1,9 @@
 <template>
   <div id="app">
-    <h1>Уголки</h1>
-    <p>Соберите из блоков правильный прямоугольник без пустых ячеек и выступов.</p>
+    <h1>Polimino</h1>
+    <p>Arrange the blocks into a perfect rectangle without any empty cells or protrusions.</p>
     <svg :width="svgWidth" :height="svgHeight" class="game-svg">
-      <!-- Сетка -->
+      <!-- Grid -->
       <g class="grid">
         <line
           v-for="i in columns + 1"
@@ -25,7 +25,7 @@
         />
       </g>
 
-      <!-- Занятые клетки (для отладки) -->
+      <!-- Occupied cells (for debugging) -->
       <g class="occupied-cells">
         <rect
           v-for="(cell, index) in occupiedCells"
@@ -38,31 +38,33 @@
         />
       </g>
 
-      <!-- Фигурки -->
-    <g>
-      <PuzzlePiece
-        v-for="piece in pieces"
-        :key="piece.key"
-        :piece="piece"
-        :gridSize="gridSize"
-        @update-piece="handleUpdatePiece"
-      />
-    </g>
+      <!-- Pieces -->
+      <g>
+        <PuzzlePiece
+          v-for="piece in pieces"
+          :key="piece.key"
+          :piece="piece"
+          :gridSize="gridSize"
+          @update-piece="handleUpdatePiece"
+        />
+      </g>
 
-      <!-- Подсказка по клавишам управления в левом нижнем углу -->
+      <!-- Control hints in the bottom left corner -->
       <g class="controls-hint">
         <rect x="10" :y="svgHeight - 60" width="240" height="50" fill="#fff" stroke="#000" />
-        <text x="20" :y="svgHeight - 40" font-size="12" fill="#000">A: Влево, D: Вправо</text>
-        <text x="20" :y="svgHeight - 20" font-size="12" fill="#000">Двойной щелчок: Отражение</text>
+        <text x="20" :y="svgHeight - 40" font-size="12" fill="#000">A: Move Left, D: Move Right</text>
+        <text x="20" :y="svgHeight - 20" font-size="12" fill="#000">Double Click: Reflect</text>
       </g>
+
+      <!-- Reset button in the bottom right corner -->
       <g class="reset-button">
         <rect x="500" :y="svgHeight - 60" width="90" height="50" fill="#fff" stroke="#000" @click="resetPieces" />
-        <text x="520" :y="svgHeight - 30" font-size="12" fill="#000" @click="resetPieces">Сбросить</text>
+        <text x="520" :y="svgHeight - 30" font-size="12" fill="#000" @click="resetPieces">Reset</text>
       </g>
     </svg>
 
     <div v-if="victory" class="victory-message">
-      Поздравляем! Вы победили!
+      Congratulations! You won!
     </div>
   </div>
 </template>
@@ -84,7 +86,7 @@ export default {
     const columns = Math.floor(svgWidth / gridSize);
     const rows = Math.floor(svgHeight / gridSize);
 
-    // Функция для инициализации фигур в начальном состоянии
+    // Function to initialize pieces in their initial state
     const initializePieces = () => {
       return initialPieces.map((piece, index) => ({
         ...piece,
@@ -92,19 +94,19 @@ export default {
         position: { ...piece.initialPosition },
         rotation: 0,
         isReflected: false,
-        key: Date.now() + index, // Уникальный ключ для пересоздания компонента
+        key: Date.now() + index, // Unique key for recreating the component
       }));
     };
 
-    // Создаем начальное состояние фигур
+    // Creating initial state of pieces
     let pieces = ref(initializePieces());
 
-    // Функция для сброса всех фигур в начальное состояние
+    // Function to reset all pieces to their initial state
     const resetPieces = () => {
-      pieces.value = initializePieces(); // Пересоздаем начальное состояние
+      pieces.value = initializePieces(); // Recreate initial state
     };
 
-    // Обработчик для обновления позиции фигурки
+    // Handler to update the piece position
     const handleUpdatePiece = updatedPiece => {
       const index = pieces.value.findIndex(p => p.id === updatedPiece.id);
       if (index === -1) return;
@@ -122,7 +124,7 @@ export default {
       checkVictory();
     };
 
-    // Проверка, находится ли фигурка в пределах сетки
+    // Check if the piece is within bounds of the grid
     const isWithinBounds = piece => {
       const transformedShape = getTransformedShape(piece);
       for (const block of transformedShape) {
@@ -136,7 +138,7 @@ export default {
       return true;
     };
 
-    // Проверка пересечения фигурки с другими фигурками
+    // Check if the piece is overlapping with other pieces
     const isOverlapping = piece => {
       const transformedShape = getTransformedShape(piece);
       const occupied = new Set();
@@ -163,7 +165,7 @@ export default {
       return false;
     };
 
-    // Проверка победы
+    // Check for victory condition
     const victory = ref(false);
     const checkVictory = () => {
       const victoryWidth = 330 / gridSize;
@@ -208,7 +210,7 @@ export default {
       victory.value = false;
     };
 
-    // Получение трансформированной формы фигурки
+    // Get transformed shape of the piece
     const getTransformedShape = piece => {
       let transformed = piece.shape.map(block => ({ ...block }));
 
