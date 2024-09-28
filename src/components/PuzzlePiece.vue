@@ -1,10 +1,24 @@
 <template>
-  <g
-    :transform="currentTransform"
-    @mousedown="onMouseDown"
-    @dblclick="onDoubleClick"
-    pointer-events="all"
-  >
+  <g :transform="currentTransform" @mousedown="onMouseDown" @dblclick="onDoubleClick" pointer-events="all">
+    <!-- Определение градиентов для блоков -->
+    <defs>
+      <radialGradient
+        v-for="(block, index) in piece.shape"
+        :key="index"
+        :id="'gradient-' + piece.id + '-' + index"
+        cx="50%"
+        cy="50%"
+        r="70%"
+        fx="50%"
+        fy="50%"
+      >
+        <stop offset="0%" :stop-color="lightenColor(piece.color)" />
+        <stop offset="50%" :stop-color="piece.color" />
+        <stop offset="100%" :stop-color="darkenColor(piece.color)" />
+      </radialGradient>
+    </defs>
+
+    <!-- Рендеринг блоков фигурки с использованием градиента -->
     <rect
       v-for="(block, index) in piece.shape"
       :key="index"
@@ -12,7 +26,7 @@
       :y="block.y * gridSize"
       :width="gridSize"
       :height="gridSize"
-      :fill="piece.color"
+      :fill="'url(#gradient-' + piece.id + '-' + index + ')'"
       stroke="#000"
     />
   </g>
@@ -35,6 +49,38 @@ export default {
   },
   emits: ['update-piece'],
   setup(props, { emit }) {
+    // Helper function to darken the color
+    const darkenColor = (color) => {
+      let c = color.slice(1); // Remove '#'
+      let rgb = parseInt(c, 16); // Convert hex to integer
+      let r = (rgb >> 16) - 50; // Red channel
+      let g = ((rgb >> 8) & 0x00FF) - 50; // Green channel
+      let b = (rgb & 0x0000FF) - 50; // Blue channel
+
+      // Limit values between 0 and 255
+      r = r < 0 ? 0 : r;
+      g = g < 0 ? 0 : g;
+      b = b < 0 ? 0 : b;
+
+      return `#${(r << 16 | g << 8 | b).toString(16).padStart(6, '0')}`;
+    };
+
+    // Helper function to lighten the color
+    const lightenColor = (color) => {
+      let c = color.slice(1); // Remove '#'
+      let rgb = parseInt(c, 16); // Convert hex to integer
+      let r = (rgb >> 16) + 50; // Red channel
+      let g = ((rgb >> 8) & 0x00FF) + 50; // Green channel
+      let b = (rgb & 0x0000FF) + 50; // Blue channel
+
+      // Limit values between 0 and 255
+      r = r > 255 ? 255 : r;
+      g = g > 255 ? 255 : g;
+      b = b > 255 ? 255 : b;
+
+      return `#${(r << 16 | g << 8 | b).toString(16).padStart(6, '0')}`;
+    };
+
     const isDragging = ref(false);
     const draggingPosition = ref(null);
 
@@ -102,8 +148,6 @@ export default {
         ...props.piece,
         isReflected: isReflected.value,
       });
-
-      console.log(`Piece ${props.piece.id} reflected: ${isReflected.value}`);
     };
 
     const onKeyDown = event => {
@@ -141,13 +185,9 @@ export default {
       currentTransform,
       onMouseDown,
       onDoubleClick,
+      darkenColor,
+      lightenColor,
     };
   },
 };
 </script>
-
-<style scoped>
-.controls {
-  cursor: pointer;
-}
-</style>

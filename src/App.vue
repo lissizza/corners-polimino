@@ -1,6 +1,6 @@
 <template>
   <div id="app">
-    <h1>Полимино</h1>
+    <h1>Уголки</h1>
     <p>Соберите из блоков правильный прямоугольник без пустых ячеек и выступов.</p>
     <svg :width="svgWidth" :height="svgHeight" class="game-svg">
       <!-- Сетка -->
@@ -39,15 +39,15 @@
       </g>
 
       <!-- Фигурки -->
-      <g>
-        <PuzzlePiece
-          v-for="piece in pieces"
-          :key="piece.id"
-          :piece="piece"
-          :gridSize="gridSize"
-          @update-piece="handleUpdatePiece"
-        />
-      </g>
+    <g>
+      <PuzzlePiece
+        v-for="piece in pieces"
+        :key="piece.key"
+        :piece="piece"
+        :gridSize="gridSize"
+        @update-piece="handleUpdatePiece"
+      />
+    </g>
 
       <!-- Подсказка по клавишам управления в левом нижнем углу -->
       <g class="controls-hint">
@@ -55,7 +55,12 @@
         <text x="20" :y="svgHeight - 40" font-size="12" fill="#000">A: Влево, D: Вправо</text>
         <text x="20" :y="svgHeight - 20" font-size="12" fill="#000">Двойной щелчок: Отражение</text>
       </g>
+      <g class="reset-button">
+        <rect x="500" :y="svgHeight - 60" width="90" height="50" fill="#fff" stroke="#000" @click="resetPieces" />
+        <text x="520" :y="svgHeight - 30" font-size="12" fill="#000" @click="resetPieces">Сбросить</text>
+      </g>
     </svg>
+
     <div v-if="victory" class="victory-message">
       Поздравляем! Вы победили!
     </div>
@@ -79,42 +84,45 @@ export default {
     const columns = Math.floor(svgWidth / gridSize);
     const rows = Math.floor(svgHeight / gridSize);
 
-    const pieces = ref(
-      initialPieces.map(piece => ({
+    // Функция для инициализации фигур в начальном состоянии
+    const initializePieces = () => {
+      return initialPieces.map((piece, index) => ({
         ...piece,
         zone: 'start',
         position: { ...piece.initialPosition },
-      }))
-    );
+        rotation: 0,
+        isReflected: false,
+        key: Date.now() + index, // Уникальный ключ для пересоздания компонента
+      }));
+    };
 
+    // Создаем начальное состояние фигур
+    let pieces = ref(initializePieces());
+
+    // Функция для сброса всех фигур в начальное состояние
+    const resetPieces = () => {
+      pieces.value = initializePieces(); // Пересоздаем начальное состояние
+    };
+
+    // Обработчик для обновления позиции фигурки
     const handleUpdatePiece = updatedPiece => {
       const index = pieces.value.findIndex(p => p.id === updatedPiece.id);
       if (index === -1) return;
 
-      // Создание временной фигурки с обновлёнными данными
       const tempPiece = { ...pieces.value[index], ...updatedPiece };
 
-      // Проверка на выход за границы
-      if (!isWithinBounds(tempPiece)) {
-        return; // Не обновляем позицию, если фигура выходит за границы
+      if (!isWithinBounds(tempPiece) || isOverlapping(tempPiece)) {
+        return;
       }
 
-      // Проверка на пересечение с другими фигурами
-      if (isOverlapping(tempPiece)) {
-        return; // Не обновляем позицию, если обнаружено пересечение
-      }
-
-      // Если проверки пройдены, обновляем фигурку
-      pieces.value[index] = { ...updatedPiece }; // Обновляем объект полностью, чтобы Vue отследил изменение
-
-      // Перемещаем фигурку в конец массива для отображения поверх других
+      pieces.value[index] = { ...updatedPiece };
       const [movedPiece] = pieces.value.splice(index, 1);
       pieces.value.push(movedPiece);
 
-      // Проверка на победу после обновления позиции
       checkVictory();
     };
 
+    // Проверка, находится ли фигурка в пределах сетки
     const isWithinBounds = piece => {
       const transformedShape = getTransformedShape(piece);
       for (const block of transformedShape) {
@@ -128,6 +136,7 @@ export default {
       return true;
     };
 
+    // Проверка пересечения фигурки с другими фигурками
     const isOverlapping = piece => {
       const transformedShape = getTransformedShape(piece);
       const occupied = new Set();
@@ -154,6 +163,7 @@ export default {
       return false;
     };
 
+    // Проверка победы
     const victory = ref(false);
     const checkVictory = () => {
       const victoryWidth = 330 / gridSize;
@@ -198,6 +208,7 @@ export default {
       victory.value = false;
     };
 
+    // Получение трансформированной формы фигурки
     const getTransformedShape = piece => {
       let transformed = piece.shape.map(block => ({ ...block }));
 
@@ -274,6 +285,7 @@ export default {
       rows,
       pieces,
       handleUpdatePiece,
+      resetPieces,
       victory,
       occupiedCells,
       transformedShapes,
@@ -282,11 +294,13 @@ export default {
 };
 </script>
 
+
 <style>
 #app {
   font-family: Avenir, Helvetica, Arial, sans-serif;
   text-align: center;
   margin: 20px;
+  position: relative;
 }
 
 .game-svg {
