@@ -89,6 +89,9 @@ export default {
       }))
     );
 
+
+    const victory = ref(false);
+
     const handleUpdatePiece = updatedPiece => {
       console.log('Attempting to update piece:', updatedPiece);
       const index = pieces.value.findIndex(p => p.id === updatedPiece.id);
@@ -117,6 +120,61 @@ export default {
       pieces.value.push(movedPiece);
 
       console.log('Piece successfully updated:', updatedPiece);
+
+      // Проверка на победу после обновления позиции
+      checkVictory();
+    };
+
+
+    const checkVictory = () => {
+      // Определим границы для победы (330 x 90 или 90 x 330 пикселей)
+      const victoryWidth = 330 / gridSize; // Ширина в количестве клеток
+      const victoryHeight = 90 / gridSize; // Высота в количестве клеток
+
+      // Создаем сетку для проверки заполненности
+      const grid = Array.from({ length: rows }, () =>
+        Array(columns).fill(false)
+      );
+
+      // Заполняем сетку занятыми клетками
+      for (const piece of pieces.value) {
+        const transformedShape = getTransformedShape(piece);
+        for (const block of transformedShape) {
+          const gridX = Math.floor(block.x / gridSize);
+          const gridY = Math.floor(block.y / gridSize);
+          if (gridX >= 0 && gridX < columns && gridY >= 0 && gridY < rows) {
+            grid[gridY][gridX] = true;
+          }
+        }
+      }
+
+      // Проверяем, есть ли область размером victoryWidth x victoryHeight, полностью заполненная
+      for (let y = 0; y <= rows - victoryHeight; y++) {
+        for (let x = 0; x <= columns - victoryWidth; x++) {
+          let filled = true;
+
+          // Проверяем все клетки в этой области
+          for (let offsetY = 0; offsetY < victoryHeight; offsetY++) {
+            for (let offsetX = 0; offsetX < victoryWidth; offsetX++) {
+              if (!grid[y + offsetY][x + offsetX]) {
+                filled = false;
+                break;
+              }
+            }
+            if (!filled) break;
+          }
+
+          // Если нашли заполненную область - это победа
+          if (filled) {
+            victory.value = true;
+            console.log('Victory achieved!');
+            return;
+          }
+        }
+      }
+
+      // Если ни одна область не заполнена, сбрасываем победу
+      victory.value = false;
     };
 
     const isWithinBounds = piece => {
@@ -159,33 +217,6 @@ export default {
       }
 
       return false;
-    };
-
-    const victory = ref(false);
-    const checkVictory = () => {
-      const requiredCells = 3 * 11;
-      let filledCells = 0;
-
-      const grid = Array.from({ length: rows }, () => Array(columns).fill(false));
-
-      for (const piece of pieces.value) {
-        if (piece.zone !== 'answer') continue;
-
-        const transformedShape = getTransformedShape(piece);
-        for (const block of transformedShape) {
-          if (block.x >= 0 && block.x < columns && block.y >= 0 && block.y < rows) {
-            grid[block.y][block.x] = true;
-            filledCells++;
-          }
-        }
-      }
-
-      if (filledCells === requiredCells) {
-        victory.value = true;
-      } else {
-        victory.value = false;
-        alert('Не все клетки заполнены!');
-      }
     };
 
     const getTransformedShape = piece => {
