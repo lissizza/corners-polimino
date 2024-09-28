@@ -47,7 +47,7 @@
 </template>
 
 <script>
-import { ref } from 'vue'; // Удален импорт 'computed'
+import { ref } from 'vue';
 import PuzzlePiece from './components/PuzzlePiece.vue';
 import { pieces as initialPieces } from './data/pieces.js';
 
