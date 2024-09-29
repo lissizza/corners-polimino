@@ -25,6 +25,14 @@
       stroke="#000"
     />
   </g>
+
+  <!-- Tooltip -->
+  <g class="tooltip" v-if="isDragging">
+    <rect x="10" y="560" width="30" height="30" rx="10" ry="10" fill="#007b7f" stroke="#663399" stroke-width="1"/>
+    <text x="15" y="580" font-size="12" fill="#fff">A ↺</text>
+    <rect x="50" y="560" width="30" height="30" rx="10" ry="10" fill="#007b7f" stroke="#663399" stroke-width="1"/>
+    <text x="55" y="580" font-size="12" fill="#fff">D ↻</text>
+  </g>
 </template>
 
 <script>
@@ -44,10 +52,8 @@ export default {
   },
   emits: ['update-piece'],
   setup(props, { emit }) {
-
     const isDragging = ref(false);
     const draggingPosition = ref(null);
-
     const rotation = ref(props.piece.rotation || 0);
     const isReflected = ref(props.piece.isReflected || false);
 
@@ -103,11 +109,11 @@ export default {
       window.addEventListener('mouseup', onMouseUp);
     };
 
-    // Обработчик двойного клика для отражения фигурки
+    // Double-click handler for reflecting the piece
     const onDoubleClick = () => {
       isReflected.value = !isReflected.value;
 
-      // Обновление состояния фигуры после отражения
+      // Update piece state after reflection
       emit('update-piece', {
         ...props.piece,
         isReflected: isReflected.value,

@@ -42,17 +42,11 @@
           />
         </g>
 
-        <!-- Controls hint at the bottom left corner -->
-        <g class="controls-hint">
-          <rect x="10" :y="svgHeight - 60" width="240" height="50" fill="#fff" stroke="#000" />
-          <text x="20" :y="svgHeight - 40" font-size="12" fill="#000">A: Влево, D: Вправо</text>
-          <text x="20" :y="svgHeight - 20" font-size="12" fill="#000">Двойной щелчок: Отражение</text>
-        </g>
 
         <!-- Reset button in the bottom right corner -->
         <g class="reset-button">
-          <rect x="500" :y="svgHeight - 60" width="90" height="50" fill="#fff" stroke="#000" @click="resetPieces" />
-          <text x="520" :y="svgHeight - 30" font-size="12" fill="#000" @click="resetPieces">Сбросить</text>
+          <rect x="500" :y="svgHeight - 40" width="90" height="30" rx="10" ry="10" fill="#007b7f" stroke="#663399" stroke-width="1" @click="resetPieces" />
+          <text x="520" :y="svgHeight - 20" font-size="12" fill="#fff" @click="resetPieces">Сбросить</text>
         </g>
       </svg>
 
