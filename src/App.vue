@@ -1,9 +1,9 @@
 <template>
   <div id="app">
-    <h1>Polimino</h1>
-    <p>Arrange the blocks into a perfect rectangle without any empty cells or protrusions.</p>
+    <h1>Уголки</h1>
+    <p>Соберите из блоков правильный прямоугольник без пустых ячеек и выступов.</p>
     <svg :width="svgWidth" :height="svgHeight" class="game-svg">
-      <!-- Grid -->
+      <!-- Сетка -->
       <g class="grid">
         <line
           v-for="i in columns + 1"
@@ -25,19 +25,6 @@
         />
       </g>
 
-      <!-- Occupied cells (for debugging) -->
-      <g class="occupied-cells">
-        <rect
-          v-for="(cell, index) in occupiedCells"
-          :key="index"
-          :x="cell.x * gridSize"
-          :y="cell.y * gridSize"
-          :width="gridSize"
-          :height="gridSize"
-          fill="rgba(255, 0, 0, 0.5)"
-        />
-      </g>
-
       <!-- Pieces -->
       <g>
         <PuzzlePiece
@@ -52,19 +39,19 @@
       <!-- Control hints in the bottom left corner -->
       <g class="controls-hint">
         <rect x="10" :y="svgHeight - 60" width="240" height="50" fill="#fff" stroke="#000" />
-        <text x="20" :y="svgHeight - 40" font-size="12" fill="#000">A: Move Left, D: Move Right</text>
-        <text x="20" :y="svgHeight - 20" font-size="12" fill="#000">Double Click: Reflect</text>
+        <text x="20" :y="svgHeight - 40" font-size="12" fill="#000">A: Влево, D: Вправо</text>
+        <text x="20" :y="svgHeight - 20" font-size="12" fill="#000">Двойной щелчок: Отражение</text>
       </g>
 
       <!-- Reset button in the bottom right corner -->
       <g class="reset-button">
         <rect x="500" :y="svgHeight - 60" width="90" height="50" fill="#fff" stroke="#000" @click="resetPieces" />
-        <text x="520" :y="svgHeight - 30" font-size="12" fill="#000" @click="resetPieces">Reset</text>
+        <text x="520" :y="svgHeight - 30" font-size="12" fill="#000" @click="resetPieces">Сбросить</text>
       </g>
     </svg>
 
     <div v-if="victory" class="victory-message">
-      Congratulations! You won!
+      Поздравляем! Вы победили!
     </div>
   </div>
 </template>
@@ -94,7 +81,7 @@ export default {
         position: { ...piece.initialPosition },
         rotation: 0,
         isReflected: false,
-        key: Date.now() + index, // Unique key for recreating the component
+        key: Date.now() + index, // Unique key to recreate the component
       }));
     };
 
@@ -263,22 +250,6 @@ export default {
       return shapes;
     });
 
-    const occupiedCells = computed(() => {
-      const occupied = [];
-      pieces.value.forEach(piece => {
-        const transformedShape = getTransformedShape(piece);
-        transformedShape.forEach(block => {
-          const gridX = Math.floor(block.x / gridSize);
-          const gridY = Math.floor(block.y / gridSize);
-
-          if (gridX >= 0 && gridX < columns && gridY >= 0 && gridY < rows) {
-            occupied.push({ x: gridX, y: gridY });
-          }
-        });
-      });
-      return occupied;
-    });
-
     return {
       svgWidth,
       svgHeight,
@@ -289,13 +260,11 @@ export default {
       handleUpdatePiece,
       resetPieces,
       victory,
-      occupiedCells,
       transformedShapes,
     };
   },
 };
 </script>
-
 
 <style>
 #app {
