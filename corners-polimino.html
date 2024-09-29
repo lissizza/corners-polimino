@@ -3,10 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <title>Уголки</title>
-  <!-- Подключение Vue.js через CDN -->
   <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
   <style>
-    /* Стили из App.vue */
     #app {
       font-family: Avenir, Helvetica, Arial, sans-serif;
       text-align: center;
@@ -53,7 +51,6 @@
       to { opacity: 1; transform: translate(-50%, -50%); }
     }
 
-    /* Стили для тултипа в PuzzlePiece */
     .tooltip rect {
       pointer-events: none;
     }
@@ -70,7 +67,6 @@
   <script>
     const { createApp, ref, computed, onBeforeUnmount } = Vue;
 
-    // Компонент PuzzlePiece
     const PuzzlePiece = {
       name: 'PuzzlePiece',
       props: {
@@ -90,6 +86,7 @@
         const rotation = ref(props.piece.rotation || 0);
         const isReflected = ref(props.piece.isReflected || false);
 
+        // Compute the current transform based on position, rotation, and reflection
         const currentTransform = computed(() => {
           const snappedX = Math.round((draggingPosition.value ? draggingPosition.value.x : props.piece.position.x) / props.gridSize) * props.gridSize;
           const snappedY = Math.round((draggingPosition.value ? draggingPosition.value.y : props.piece.position.y) / props.gridSize) * props.gridSize;
@@ -97,6 +94,7 @@
           return `translate(${snappedX}, ${snappedY}) rotate(${rotation.value}) scale(${isReflected.value ? -1 : 1}, 1)`;
         });
 
+        // Handle mouse down event for dragging
         const onMouseDown = event => {
           event.preventDefault();
           isDragging.value = true;
@@ -108,6 +106,7 @@
           const startY = event.clientY - svgRect.top;
           const initialPos = { ...props.piece.position };
 
+          // Handle mouse move event
           const onMouseMove = e => {
             const currentX = e.clientX - svgRect.left;
             const currentY = e.clientY - svgRect.top;
@@ -118,6 +117,7 @@
             draggingPosition.value = { x: initialPos.x + dx, y: initialPos.y + dy };
           };
 
+          // Handle mouse up event
           const onMouseUp = () => {
             isDragging.value = false;
             window.removeEventListener('mousemove', onMouseMove);
@@ -142,6 +142,7 @@
           window.addEventListener('mouseup', onMouseUp);
         };
 
+        // Handle double-click event for reflection
         const onDoubleClick = () => {
           isReflected.value = !isReflected.value;
 
@@ -151,6 +152,7 @@
           });
         };
 
+        // Handle key down events for rotation
         const onKeyDown = event => {
           if (!isDragging.value) return;
           if (event.key === 'a' || event.key === 'A') {
@@ -170,12 +172,14 @@
           }
         };
 
+        // Add event listener for keydown
         const handleKeyDown = event => {
           onKeyDown(event);
         };
 
         window.addEventListener('keydown', handleKeyDown);
 
+        // Remove event listener on component unmount
         onBeforeUnmount(() => {
           window.removeEventListener('keydown', handleKeyDown);
         });
@@ -227,7 +231,7 @@
       `
     };
 
-    // Данные для пазлов
+    // Initial puzzle pieces data
     const initialPieces = [
       {
         id: 3,
@@ -318,7 +322,6 @@
       },
     ];
 
-    // Компонент App
     const App = {
       name: 'App',
       components: {
@@ -331,6 +334,7 @@
         const columns = Math.floor(svgWidth / gridSize);
         const rows = Math.floor(svgHeight / gridSize);
 
+        // Initialize puzzle pieces
         const initializePieces = () => {
           return initialPieces.map((piece, index) => ({
             ...piece,
@@ -344,17 +348,20 @@
 
         const pieces = ref(initializePieces());
 
+        // Reset all pieces to their initial state
         const resetPieces = () => {
           pieces.value = initializePieces();
-          victory.value = false; // Сброс состояния победы
+          victory.value = false; // Reset victory state
         };
 
+        // Handle piece updates from PuzzlePiece component
         const handleUpdatePiece = updatedPiece => {
           const index = pieces.value.findIndex(p => p.id === updatedPiece.id);
           if (index === -1) return;
 
           const tempPiece = { ...pieces.value[index], ...updatedPiece };
 
+          // Check if the updated piece is within bounds and not overlapping
           if (!isWithinBounds(tempPiece) || isOverlapping(tempPiece)) {
             return;
           }
@@ -366,6 +373,7 @@
           checkVictory();
         };
 
+        // Check if the piece is within the grid boundaries
         const isWithinBounds = piece => {
           const transformedShape = getTransformedShape(piece);
           for (const block of transformedShape) {
@@ -379,6 +387,7 @@
           return true;
         };
 
+        // Check if the piece overlaps with other pieces
         const isOverlapping = piece => {
           const transformedShape = getTransformedShape(piece);
           const occupied = new Set();
@@ -406,18 +415,18 @@
         };
 
         const victory = ref(false);
+
+        // Check for victory condition
         const checkVictory = () => {
-          // Определите условия победы. Здесь используется примерный прямоугольник.
-          // Вы можете изменить логику проверки в соответствии с вашими требованиями.
+          const victoryWidth = 11;
+          const victoryHeight = 3;
 
-          // Пример: Проверяем, заполнена ли определённая область
-          const victoryWidth = 11; // Примерное значение, измените по необходимости
-          const victoryHeight = 3; // Примерное значение, измените по необходимости
-
+          // Create a grid representation
           const grid = Array.from({ length: rows }, () =>
             Array(columns).fill(false)
           );
 
+          // Mark occupied cells based on puzzle pieces
           for (const piece of pieces.value) {
             const transformedShape = getTransformedShape(piece);
             for (const block of transformedShape) {
@@ -429,6 +438,7 @@
             }
           }
 
+          // Scan the grid for a filled area matching victory condition
           for (let y = 0; y <= rows - victoryHeight; y++) {
             for (let x = 0; x <= columns - victoryWidth; x++) {
               let filled = true;
@@ -453,10 +463,12 @@
           victory.value = false;
         };
 
+        // Hide the victory overlay
         const hideVictoryOverlay = () => {
           victory.value = false;
         };
 
+        // Transform the shape of the piece based on rotation and reflection
         const getTransformedShape = piece => {
           let transformed = piece.shape.map(block => ({ ...block }));
 
@@ -524,6 +536,7 @@
           
           <div class="game-svg-container">
             <svg :width="svgWidth" :height="svgHeight" class="game-svg">
+              <!-- Grid lines -->
               <g class="grid">
                 <line
                   v-for="i in columns + 1"
@@ -545,6 +558,7 @@
                 />
               </g>
 
+              <!-- Puzzle pieces -->
               <g>
                 <PuzzlePiece
                   v-for="piece in pieces"
@@ -555,6 +569,7 @@
                 />
               </g>
 
+              <!-- Reset button -->
               <g class="reset-button">
                 <rect x="500" :y="svgHeight - 40" width="90" height="30" rx="10" ry="10" fill="#007b7f" stroke="#663399" stroke-width="1" @click="resetPieces" />
                 <text x="520" :y="svgHeight - 20" font-size="12" fill="#fff" @click="resetPieces">Сбросить</text>
@@ -570,7 +585,6 @@
       `
     };
 
-    // Создание и монтирование приложения
     createApp(App).mount('#app');
   </script>
 </body>
