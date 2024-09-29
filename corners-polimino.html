@@ -1,0 +1,577 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <title>Уголки</title>
+  <!-- Подключение Vue.js через CDN -->
+  <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
+  <style>
+    /* Стили из App.vue */
+    #app {
+      font-family: Avenir, Helvetica, Arial, sans-serif;
+      text-align: center;
+      margin: 20px;
+      position: relative;
+    }
+    
+    .game-svg-container {
+      position: relative;
+      display: flex;
+      justify-content: center;
+      margin: 20px auto;
+    }
+    
+    .game-svg {
+      border: 2px solid #333;
+      background-color: #fafafa;
+    }
+    
+    .grid line {
+      stroke: #ccc;
+    }
+    
+    .victory-overlay {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      cursor: pointer;
+      z-index: 10;
+      background-color: rgba(0, 123, 127, 0.9);
+      padding: 20px 40px;
+      border-radius: 15px;
+      box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
+      color: #fff;
+      font-size: 32px;
+      font-weight: bold;
+      text-align: center;
+      animation: fadeIn 0.5s ease-in-out;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translate(-50%, -60%); }
+      to { opacity: 1; transform: translate(-50%, -50%); }
+    }
+
+    /* Стили для тултипа в PuzzlePiece */
+    .tooltip rect {
+      pointer-events: none;
+    }
+
+    .tooltip text {
+      pointer-events: none;
+      user-select: none;
+    }
+  </style>
+</head>
+<body>
+  <div id="app"></div>
+
+  <script>
+    const { createApp, ref, computed, onBeforeUnmount } = Vue;
+
+    // Компонент PuzzlePiece
+    const PuzzlePiece = {
+      name: 'PuzzlePiece',
+      props: {
+        piece: {
+          type: Object,
+          required: true,
+        },
+        gridSize: {
+          type: Number,
+          required: true,
+        },
+      },
+      emits: ['update-piece'],
+      setup(props, { emit }) {
+        const isDragging = ref(false);
+        const draggingPosition = ref(null);
+        const rotation = ref(props.piece.rotation || 0);
+        const isReflected = ref(props.piece.isReflected || false);
+
+        const currentTransform = computed(() => {
+          const snappedX = Math.round((draggingPosition.value ? draggingPosition.value.x : props.piece.position.x) / props.gridSize) * props.gridSize;
+          const snappedY = Math.round((draggingPosition.value ? draggingPosition.value.y : props.piece.position.y) / props.gridSize) * props.gridSize;
+
+          return `translate(${snappedX}, ${snappedY}) rotate(${rotation.value}) scale(${isReflected.value ? -1 : 1}, 1)`;
+        });
+
+        const onMouseDown = event => {
+          event.preventDefault();
+          isDragging.value = true;
+
+          const svg = event.currentTarget.ownerSVGElement;
+          const svgRect = svg.getBoundingClientRect();
+
+          const startX = event.clientX - svgRect.left;
+          const startY = event.clientY - svgRect.top;
+          const initialPos = { ...props.piece.position };
+
+          const onMouseMove = e => {
+            const currentX = e.clientX - svgRect.left;
+            const currentY = e.clientY - svgRect.top;
+
+            const dx = currentX - startX;
+            const dy = currentY - startY;
+
+            draggingPosition.value = { x: initialPos.x + dx, y: initialPos.y + dy };
+          };
+
+          const onMouseUp = () => {
+            isDragging.value = false;
+            window.removeEventListener('mousemove', onMouseMove);
+            window.removeEventListener('mouseup', onMouseUp);
+
+            if (draggingPosition.value) {
+              const snappedX = Math.round(draggingPosition.value.x / props.gridSize) * props.gridSize;
+              const snappedY = Math.round(draggingPosition.value.y / props.gridSize) * props.gridSize;
+
+              emit('update-piece', {
+                ...props.piece,
+                position: { x: snappedX, y: snappedY },
+                rotation: rotation.value,
+                isReflected: isReflected.value,
+              });
+
+              draggingPosition.value = null;
+            }
+          };
+
+          window.addEventListener('mousemove', onMouseMove);
+          window.addEventListener('mouseup', onMouseUp);
+        };
+
+        const onDoubleClick = () => {
+          isReflected.value = !isReflected.value;
+
+          emit('update-piece', {
+            ...props.piece,
+            isReflected: isReflected.value,
+          });
+        };
+
+        const onKeyDown = event => {
+          if (!isDragging.value) return;
+          if (event.key === 'a' || event.key === 'A') {
+            rotation.value = (rotation.value - 90) % 360;
+            if (rotation.value < 0) rotation.value += 360;
+            emit('update-piece', {
+              ...props.piece,
+              rotation: rotation.value,
+            });
+          }
+          if (event.key === 'd' || event.key === 'D') {
+            rotation.value = (rotation.value + 90) % 360;
+            emit('update-piece', {
+              ...props.piece,
+              rotation: rotation.value,
+            });
+          }
+        };
+
+        const handleKeyDown = event => {
+          onKeyDown(event);
+        };
+
+        window.addEventListener('keydown', handleKeyDown);
+
+        onBeforeUnmount(() => {
+          window.removeEventListener('keydown', handleKeyDown);
+        });
+
+        return {
+          isDragging,
+          draggingPosition,
+          rotation,
+          isReflected,
+          currentTransform,
+          onMouseDown,
+          onDoubleClick,
+        };
+      },
+      template: `
+        <g :transform="currentTransform" @mousedown="onMouseDown" @dblclick="onDoubleClick" pointer-events="all">
+          <defs>
+            <radialGradient
+              v-for="(block, index) in piece.shape"
+              :key="'gradient-' + piece.id + '-' + index"
+              :id="'gradient-' + piece.id + '-' + index"
+              cx="50%"
+              cy="50%"
+              r="100%"
+            >
+              <stop offset="25%" :stop-color="piece.color" />
+              <stop offset="95%" stop-color="#000" />
+            </radialGradient>
+          </defs>
+
+          <rect
+            v-for="(block, index) in piece.shape"
+            :key="'rect-' + index"
+            :x="block.x * gridSize"
+            :y="block.y * gridSize"
+            :width="gridSize"
+            :height="gridSize"
+            :fill="'url(#gradient-' + piece.id + '-' + index + ')'"
+            stroke="#000"
+          />
+        </g>
+
+        <g class="tooltip" v-if="isDragging">
+          <rect x="10" y="560" width="30" height="30" rx="10" ry="10" fill="#007b7f" stroke="#663399" stroke-width="1"/>
+          <text x="15" y="580" font-size="12" fill="#fff">A ↺</text>
+          <rect x="50" y="560" width="30" height="30" rx="10" ry="10" fill="#007b7f" stroke="#663399" stroke-width="1"/>
+          <text x="55" y="580" font-size="12" fill="#fff">D ↻</text>
+        </g>
+      `
+    };
+
+    // Данные для пазлов
+    const initialPieces = [
+      {
+        id: 3,
+        color: 'orange',
+        blocks: 3,
+        shape: [
+          { x: 0, y: 0 },
+          { x: 1, y: 0 },
+          { x: 1, y: 1 },
+        ],
+        initialPosition: { x: 30, y: 30 },
+        rotation: 0,
+      },
+      {
+        id: 4,
+        color: 'blue',
+        blocks: 4,
+        shape: [
+          { x: 0, y: 0 },
+          { x: 1, y: 0 },
+          { x: 2, y: 0 },
+          { x: 2, y: 1 },
+        ],
+        initialPosition: { x: 120, y: 30 },
+        rotation: 0,
+      },
+      {
+        id: 5,
+        color: 'purple',
+        blocks: 5,
+        shape: [
+          { x: 0, y: 0 },
+          { x: 1, y: 0 },
+          { x: 2, y: 0 },
+          { x: 3, y: 0 },
+          { x: 3, y: 1 },
+        ],
+        initialPosition: { x: 240, y: 30 },
+        rotation: 0,
+      },
+      {
+        id: 6,
+        color: 'yellow',
+        blocks: 6,
+        shape: [
+          { x: 0, y: 0 },
+          { x: 1, y: 0 },
+          { x: 2, y: 0 },
+          { x: 3, y: 0 },
+          { x: 4, y: 0 },
+          { x: 0, y: 1 },
+        ],
+        initialPosition: { x: 390, y: 30 },
+        rotation: 0,
+      },
+      {
+        id: 7,
+        color: 'red',
+        blocks: 7,
+        shape: [
+          { x: 0, y: 0 },
+          { x: 1, y: 0 },
+          { x: 2, y: 0 },
+          { x: 3, y: 0 },
+          { x: 4, y: 0 },
+          { x: 5, y: 0 },
+          { x: 0, y: 1 },
+        ],
+        initialPosition: { x: 90, y: 120 },
+        rotation: 0,
+      },
+      {
+        id: 8,
+        color: 'green',
+        blocks: 8,
+        shape: [
+          { x: 0, y: 0 },
+          { x: 1, y: 0 },
+          { x: 2, y: 0 },
+          { x: 3, y: 0 },
+          { x: 4, y: 0 },
+          { x: 5, y: 0 },
+          { x: 6, y: 0 },
+          { x: 0, y: 1 },
+        ],
+        initialPosition: { x: 300, y: 120 },
+        rotation: 0,
+      },
+    ];
+
+    // Компонент App
+    const App = {
+      name: 'App',
+      components: {
+        PuzzlePiece,
+      },
+      setup() {
+        const gridSize = 30;
+        const svgWidth = 600;
+        const svgHeight = 600;
+        const columns = Math.floor(svgWidth / gridSize);
+        const rows = Math.floor(svgHeight / gridSize);
+
+        const initializePieces = () => {
+          return initialPieces.map((piece, index) => ({
+            ...piece,
+            zone: 'start',
+            position: { ...piece.initialPosition },
+            rotation: 0,
+            isReflected: false,
+            key: Date.now() + index,
+          }));
+        };
+
+        const pieces = ref(initializePieces());
+
+        const resetPieces = () => {
+          pieces.value = initializePieces();
+          victory.value = false; // Сброс состояния победы
+        };
+
+        const handleUpdatePiece = updatedPiece => {
+          const index = pieces.value.findIndex(p => p.id === updatedPiece.id);
+          if (index === -1) return;
+
+          const tempPiece = { ...pieces.value[index], ...updatedPiece };
+
+          if (!isWithinBounds(tempPiece) || isOverlapping(tempPiece)) {
+            return;
+          }
+
+          pieces.value[index] = { ...updatedPiece };
+          const [movedPiece] = pieces.value.splice(index, 1);
+          pieces.value.push(movedPiece);
+
+          checkVictory();
+        };
+
+        const isWithinBounds = piece => {
+          const transformedShape = getTransformedShape(piece);
+          for (const block of transformedShape) {
+            const gridX = Math.floor(block.x / gridSize);
+            const gridY = Math.floor(block.y / gridSize);
+
+            if (gridX < 0 || gridX >= columns || gridY < 0 || gridY >= rows) {
+              return false;
+            }
+          }
+          return true;
+        };
+
+        const isOverlapping = piece => {
+          const transformedShape = getTransformedShape(piece);
+          const occupied = new Set();
+
+          pieces.value.forEach(p => {
+            if (p.id !== piece.id) {
+              const shape = getTransformedShape(p);
+              shape.forEach(block => {
+                const gridX = Math.floor(block.x / gridSize);
+                const gridY = Math.floor(block.y / gridSize);
+                occupied.add(`${gridX},${gridY}`);
+              });
+            }
+          });
+
+          for (const block of transformedShape) {
+            const gridX = Math.floor(block.x / gridSize);
+            const gridY = Math.floor(block.y / gridSize);
+            if (occupied.has(`${gridX},${gridY}`)) {
+              return true;
+            }
+          }
+
+          return false;
+        };
+
+        const victory = ref(false);
+        const checkVictory = () => {
+          // Определите условия победы. Здесь используется примерный прямоугольник.
+          // Вы можете изменить логику проверки в соответствии с вашими требованиями.
+
+          // Пример: Проверяем, заполнена ли определённая область
+          const victoryWidth = 11; // Примерное значение, измените по необходимости
+          const victoryHeight = 3; // Примерное значение, измените по необходимости
+
+          const grid = Array.from({ length: rows }, () =>
+            Array(columns).fill(false)
+          );
+
+          for (const piece of pieces.value) {
+            const transformedShape = getTransformedShape(piece);
+            for (const block of transformedShape) {
+              const gridX = Math.floor(block.x / gridSize);
+              const gridY = Math.floor(block.y / gridSize);
+              if (gridX >= 0 && gridX < columns && gridY >= 0 && gridY < rows) {
+                grid[gridY][gridX] = true;
+              }
+            }
+          }
+
+          for (let y = 0; y <= rows - victoryHeight; y++) {
+            for (let x = 0; x <= columns - victoryWidth; x++) {
+              let filled = true;
+
+              for (let offsetY = 0; offsetY < victoryHeight; offsetY++) {
+                for (let offsetX = 0; offsetX < victoryWidth; offsetX++) {
+                  if (!grid[y + offsetY][x + offsetX]) {
+                    filled = false;
+                    break;
+                  }
+                }
+                if (!filled) break;
+              }
+
+              if (filled) {
+                victory.value = true;
+                return;
+              }
+            }
+          }
+
+          victory.value = false;
+        };
+
+        const hideVictoryOverlay = () => {
+          victory.value = false;
+        };
+
+        const getTransformedShape = piece => {
+          let transformed = piece.shape.map(block => ({ ...block }));
+
+          if (piece.isReflected) {
+            transformed = transformed.map(block => ({
+              x: -block.x - 1,
+              y: block.y,
+            }));
+          }
+
+          const angle = (piece.rotation % 360 + 360) % 360;
+
+          transformed = transformed.map(block => {
+            let newX, newY;
+
+            switch (angle) {
+              case 90:
+                newX = -block.y - 1;
+                newY = block.x;
+                break;
+              case 180:
+                newX = -block.x - 1;
+                newY = -block.y - 1;
+                break;
+              case 270:
+                newX = block.y;
+                newY = -block.x - 1;
+                break;
+              default:
+                newX = block.x;
+                newY = block.y;
+            }
+
+            return { x: newX, y: newY };
+          });
+
+          transformed = transformed.map(block => ({
+            x: block.x * gridSize + piece.position.x,
+            y: block.y * gridSize + piece.position.y,
+          }));
+
+          return transformed;
+        };
+
+        return {
+          svgWidth,
+          svgHeight,
+          gridSize,
+          columns,
+          rows,
+          pieces,
+          handleUpdatePiece,
+          resetPieces,
+          victory,
+          hideVictoryOverlay,
+        };
+      },
+      template: `
+        <div id="app">
+          <h1>Уголки</h1>
+          <p>
+            Соберите из уголков правильный прямоугольник без пустых ячеек и выступов.<br />
+            Кнопка A вращает перетаскиваемый уголок влево, кнопка D - вправо, двойной клик левой кнопкой мыши - отразить уголок.
+          </p>
+          
+          <div class="game-svg-container">
+            <svg :width="svgWidth" :height="svgHeight" class="game-svg">
+              <g class="grid">
+                <line
+                  v-for="i in columns + 1"
+                  :key="'v' + i"
+                  :x1="i * gridSize"
+                  y1="0"
+                  :x2="i * gridSize"
+                  :y2="rows * gridSize"
+                  stroke="#ccc"
+                />
+                <line
+                  v-for="i in rows + 1"
+                  :key="'h' + i"
+                  x1="0"
+                  :y1="i * gridSize"
+                  :x2="columns * gridSize"
+                  :y2="i * gridSize"
+                  stroke="#ccc"
+                />
+              </g>
+
+              <g>
+                <PuzzlePiece
+                  v-for="piece in pieces"
+                  :key="piece.key"
+                  :piece="piece"
+                  :gridSize="gridSize"
+                  @update-piece="handleUpdatePiece"
+                />
+              </g>
+
+              <g class="reset-button">
+                <rect x="500" :y="svgHeight - 40" width="90" height="30" rx="10" ry="10" fill="#007b7f" stroke="#663399" stroke-width="1" @click="resetPieces" />
+                <text x="520" :y="svgHeight - 20" font-size="12" fill="#fff" @click="resetPieces">Сбросить</text>
+              </g>
+            </svg>
+
+            <!-- Victory Overlay -->
+            <div v-if="victory" class="victory-overlay" @click.stop="hideVictoryOverlay">
+              Поздравляем, задача решена!
+            </div>
+          </div>
+        </div>
+      `
+    };
+
+    // Создание и монтирование приложения
+    createApp(App).mount('#app');
+  </script>
+</body>
+</html>

@@ -42,7 +42,6 @@
           />
         </g>
 
-
         <!-- Reset button in the bottom right corner -->
         <g class="reset-button">
           <rect x="500" :y="svgHeight - 40" width="90" height="30" rx="10" ry="10" fill="#007b7f" stroke="#663399" stroke-width="1" @click="resetPieces" />
