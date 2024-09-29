@@ -1,63 +1,71 @@
 <template>
   <div id="app">
     <h1>Уголки</h1>
-    <p>Соберите из блоков правильный прямоугольник без пустых ячеек и выступов.</p>
-    <svg :width="svgWidth" :height="svgHeight" class="game-svg">
-      <!-- Сетка -->
-      <g class="grid">
-        <line
-          v-for="i in columns + 1"
-          :key="'v' + i"
-          :x1="i * gridSize"
-          y1="0"
-          :x2="i * gridSize"
-          :y2="rows * gridSize"
-          stroke="#ccc"
-        />
-        <line
-          v-for="i in rows + 1"
-          :key="'h' + i"
-          x1="0"
-          :y1="i * gridSize"
-          :x2="columns * gridSize"
-          :y2="i * gridSize"
-          stroke="#ccc"
-        />
-      </g>
+    <p>
+      Соберите из уголков правильный прямоугольник без пустых ячеек и выступов.<br />
+      Кнопка A вращает перетаскиваемый уголок влево, кнопка D - вправо, двойной клик левой кнопкой мыши - отразить уголок.
+    </p>
+    
+    <!-- Container for SVG -->
+    <div class="game-svg-container">
+      <svg :width="svgWidth" :height="svgHeight" class="game-svg">
+        <!-- Grid -->
+        <g class="grid">
+          <line
+            v-for="i in columns + 1"
+            :key="'v' + i"
+            :x1="i * gridSize"
+            y1="0"
+            :x2="i * gridSize"
+            :y2="rows * gridSize"
+            stroke="#ccc"
+          />
+          <line
+            v-for="i in rows + 1"
+            :key="'h' + i"
+            x1="0"
+            :y1="i * gridSize"
+            :x2="columns * gridSize"
+            :y2="i * gridSize"
+            stroke="#ccc"
+          />
+        </g>
 
-      <!-- Pieces -->
-      <g>
-        <PuzzlePiece
-          v-for="piece in pieces"
-          :key="piece.key"
-          :piece="piece"
-          :gridSize="gridSize"
-          @update-piece="handleUpdatePiece"
-        />
-      </g>
+        <!-- Puzzle pieces -->
+        <g>
+          <PuzzlePiece
+            v-for="piece in pieces"
+            :key="piece.key"
+            :piece="piece"
+            :gridSize="gridSize"
+            @update-piece="handleUpdatePiece"
+          />
+        </g>
 
-      <!-- Control hints in the bottom left corner -->
-      <g class="controls-hint">
-        <rect x="10" :y="svgHeight - 60" width="240" height="50" fill="#fff" stroke="#000" />
-        <text x="20" :y="svgHeight - 40" font-size="12" fill="#000">A: Влево, D: Вправо</text>
-        <text x="20" :y="svgHeight - 20" font-size="12" fill="#000">Двойной щелчок: Отражение</text>
-      </g>
+        <!-- Controls hint at the bottom left corner -->
+        <g class="controls-hint">
+          <rect x="10" :y="svgHeight - 60" width="240" height="50" fill="#fff" stroke="#000" />
+          <text x="20" :y="svgHeight - 40" font-size="12" fill="#000">A: Влево, D: Вправо</text>
+          <text x="20" :y="svgHeight - 20" font-size="12" fill="#000">Двойной щелчок: Отражение</text>
+        </g>
 
-      <!-- Reset button in the bottom right corner -->
-      <g class="reset-button">
-        <rect x="500" :y="svgHeight - 60" width="90" height="50" fill="#fff" stroke="#000" @click="resetPieces" />
-        <text x="520" :y="svgHeight - 30" font-size="12" fill="#000" @click="resetPieces">Сбросить</text>
-      </g>
-    </svg>
+        <!-- Reset button in the bottom right corner -->
+        <g class="reset-button">
+          <rect x="500" :y="svgHeight - 60" width="90" height="50" fill="#fff" stroke="#000" @click="resetPieces" />
+          <text x="520" :y="svgHeight - 30" font-size="12" fill="#000" @click="resetPieces">Сбросить</text>
+        </g>
+      </svg>
 
-    <div v-if="victory" class="victory-message">
-      Поздравляем! Вы победили!
+      <!-- Victory GIF -->
+      <div v-if="victory" class="victory-gif-overlay" @click.stop="hideVictoryGif">
+        <img :src="victoryGif" alt="Victory Celebration" />
+      </div>
     </div>
   </div>
 </template>
 
 <script>
-import { ref, computed } from 'vue';
+import { ref } from 'vue';
 import PuzzlePiece from './components/PuzzlePiece.vue';
 import { pieces as initialPieces } from './data/pieces.js';
 
@@ -154,6 +162,7 @@ export default {
 
     // Check for victory condition
     const victory = ref(false);
+    const victoryGif = ref('');
     const checkVictory = () => {
       const victoryWidth = 330 / gridSize;
       const victoryHeight = 90 / gridSize;
@@ -189,11 +198,30 @@ export default {
 
           if (filled) {
             victory.value = true;
+            chooseRandomVictoryGif();
             return;
           }
         }
       }
 
+      victory.value = false;
+    };
+
+    // Choose a random victory GIF
+    const chooseRandomVictoryGif = () => {
+      const gifs = [
+        'images/congrats/yes-yay.gif',
+        'images/congrats/proud.gif',
+        'images/congrats/omg-congrats.gif',
+        'images/congrats/congrats-gif-5.gif',
+        'images/congrats/celebrate-happy.gif',
+      ];
+      const randomIndex = Math.floor(Math.random() * gifs.length);
+      victoryGif.value = gifs[randomIndex];
+    };
+
+    // Hide the victory GIF
+    const hideVictoryGif = () => {
       victory.value = false;
     };
 
@@ -242,14 +270,6 @@ export default {
       return transformed;
     };
 
-    const transformedShapes = computed(() => {
-      const shapes = {};
-      pieces.value.forEach(piece => {
-        shapes[piece.id] = getTransformedShape(piece);
-      });
-      return shapes;
-    });
-
     return {
       svgWidth,
       svgHeight,
@@ -260,7 +280,8 @@ export default {
       handleUpdatePiece,
       resetPieces,
       victory,
-      transformedShapes,
+      victoryGif,
+      hideVictoryGif,
     };
   },
 };
@@ -274,19 +295,34 @@ export default {
   position: relative;
 }
 
+.game-svg-container {
+  position: relative;
+  display: flex;
+  justify-content: center;
+  margin: 20px auto;
+}
+
 .game-svg {
   border: 2px solid #333;
   background-color: #fafafa;
-  margin: 20px auto;
 }
 
 .grid line {
   stroke: #ccc;
 }
 
-.victory-message {
-  color: green;
-  font-size: 1.5em;
-  margin-top: 20px;
+.victory-gif-overlay {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  cursor: pointer;
+  z-index: 10;
+  border: 2px solid black;
+}
+
+.victory-gif-overlay img {
+  width: 400px;
+  max-width: 100%;
 }
 </style>
